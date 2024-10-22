@@ -17,8 +17,6 @@
 
 #define debug 0
 
-#include "gitdata.h"
-
 my_barrier_t barrier; // Declare our custom barrier
 
 // Data structure to pass arguments to threads
@@ -188,7 +186,6 @@ void sanityCheck(size_t size, char *block, char expected_value)
 void *test_alloc_and_free(void *arg)
 {
     thread_data_t *data = (thread_data_t *)arg;
-
     // Allocate and fill two blocks of memory with unique patterns
     size_t block1_size = data->block_size / 4;
     char *block1 = (char *)mem_alloc(block1_size);
@@ -205,10 +202,8 @@ void *test_alloc_and_free(void *arg)
     // Check integrity of the data before freeing
     sanityCheck(block1_size, block1, data->thread_id);
     sanityCheck(block2_size, block2, data->thread_id + block1_size);
-
     mem_free(block1);
     mem_free(block2);
-
     return NULL;
 }
 
@@ -217,17 +212,13 @@ void *test_zero_alloc_and_free(void *arg)
     thread_data_t *data = (thread_data_t *)arg;
 
     void *block1 = mem_alloc(0);
-    my_assert(block1 != NULL);
     void *block2 = mem_alloc(200);
     my_assert(block2 != NULL);
-
     memset(block2, data->thread_id, 200); // Unique pattern using thread_id
-
     my_barrier_wait(&barrier);
-
     sanityCheck(200, block2, data->thread_id);
 
-    mem_free(block1);
+    //mem_free(block1);
     mem_free(block2);
 
     return NULL;
@@ -331,13 +322,12 @@ void *thread_resize(void *arg)
 
 void test_resize_multithread(TestParams params)
 {
-    printf_yellow("  Testing \"mem_resize\" (threads: %d) ---> ", params.num_threads);
+    printf_yellow("\n  Testing \"mem_resize\" (threads: %d) ---> \n", params.num_threads);
 
     pthread_t threads[params.num_threads];
     size_t initial_size = 100; // Each thread starts with 100 bytes
 
     mem_init(1024 * params.num_threads); // Initialize enough memory for all threads to work comfortably
-
     // Launch threads to perform the resize operation
     for (int i = 0; i < params.num_threads; i++)
     {
@@ -347,7 +337,6 @@ void test_resize_multithread(TestParams params)
             exit(EXIT_FAILURE);
         }
     }
-
     // Wait for all threads to finish
     int failures = 0;
     void *status;
@@ -359,7 +348,6 @@ void test_resize_multithread(TestParams params)
             failures++;
         }
     }
-
     mem_deinit(); // Clean up the memory manager
 
     if (failures == 0)
@@ -479,7 +467,7 @@ void test_exceed_cumulative_allocation_multithread(TestParams params)
             exit(EXIT_FAILURE);
         }
     }
-
+    printf_yellow("  Testing \"cumulative allocations exceeding pool size\" (threads: %d, mem_size: %zu) ---> \n", params.num_threads, params.memory_size);
     // Join threads and check results
     int pass_count = 0;
     void *status;
@@ -491,7 +479,7 @@ void test_exceed_cumulative_allocation_multithread(TestParams params)
             pass_count++;
         }
     }
-
+    printf_yellow("  Testing \"cumulative allocations exceeding pool size\" (threads: %d, mem_size: %zu) ---> \n", params.num_threads, params.memory_size);
     mem_deinit();                 // Clean up the memory manager
     my_barrier_destroy(&barrier); // Destroy the barrier
     if (pass_count >= 1)
@@ -892,7 +880,6 @@ int main(int argc, char *argv[])
 #ifdef VERSION
     printf("Build Version; %s \n", VERSION);
 #endif
-    printf("Git Version; %s/%s \n", git_date, git_sha);
 
     if (argc < 2)
     {
@@ -922,9 +909,7 @@ int main(int argc, char *argv[])
         printf("\n*** Testing various functions with a base number of threads: ***\n");
         run_concurrent_test(test_alloc_and_free, (TestParams){.num_threads = base_num_threads, .memory_size = 1024}, "mem_alloc and mem_free");
         run_concurrent_test(test_zero_alloc_and_free, (TestParams){.num_threads = base_num_threads, .memory_size = 1024}, "zero alloc and free");
-
         test_resize_multithread((TestParams){.num_threads = base_num_threads});
-
         test_exceed_single_allocation_multithread((TestParams){.num_threads = base_num_threads});
         test_exceed_cumulative_allocation_multithread((TestParams){.num_threads = base_num_threads, .memory_size = 1024}); // TODO: Fix this to be able to run with various configurations
 

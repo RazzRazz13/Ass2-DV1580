@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <math.h>
 #include "common_defs.h"
-#include "gitdata.h"
 
 typedef struct
 {
@@ -654,7 +653,6 @@ int main(int argc, char *argv[])
 #ifdef VERSION
     printf("Build Version; %s \n", VERSION);
 #endif
-    printf("Git Version; %s/%s \n", git_date, git_sha);
     if (argc < 2)
     {
         printf("Usage: %s <test function>\n", argv[0]);
