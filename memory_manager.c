@@ -15,7 +15,6 @@ static Memory_Block* first_block;
 static void* memorypool;
 static void* blockpool;
 static pthread_mutex_t mutex;
-static pthread_mutex_t rezise;
 
 void mem_init(size_t size){
     memorypool = malloc(size); //Initialize the memeorypool
@@ -108,7 +107,6 @@ void mem_free(void* block) {
 }
 
 void* mem_resize(void* block, size_t size){
-    pthread_mutex_lock(&rezise);
     Memory_Block* current_block = (Memory_Block*)block;
     if((*current_block).size < size){
         pthread_mutex_lock(&mutex);
@@ -127,7 +125,6 @@ void* mem_resize(void* block, size_t size){
         Memory_Block* new_block = mem_alloc(size); //Getting a new block with the intended size
         current_block = new_block; //Returning the new block
     }
-    pthread_mutex_unlock(&rezise);
     return current_block;
 }
 
@@ -140,5 +137,4 @@ void mem_deinit(){
     blockpool = NULL;
     pthread_mutex_unlock(&mutex);
     pthread_mutex_destroy(&mutex);
-    pthread_mutex_destroy(&rezise);
 }

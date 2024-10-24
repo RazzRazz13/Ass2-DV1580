@@ -260,7 +260,7 @@ void *thread_alloc_free(void *arg)
 
 void test_random_blocks_multithread(TestParams params)
 {
-    printf_yellow("  Testing \"mem_alloc\" and mem_free for random blocks (threads: %d, max_block_size: %zu) ---> ", params.num_threads, params.block_size);
+    printf_yellow("  Testing \"mem_alloc\" and mem_free for random blocks (threads: %d, max_block_size: %zu) ---> \n", params.num_threads, params.block_size);
     srand(time(NULL)); // Initialize random seed
 
     int total_blocks = 1000 + rand() % 10000;
@@ -430,19 +430,20 @@ void *cumulative_alloc(void *arg)
     thread_data_t *data = (thread_data_t *)arg;
 
     size_t block_size = data->block_size / 128;
+    printf("%zu\n", block_size);
     char **blocks = (char **)malloc(128 * sizeof(char *));
     intptr_t returnval = 0;
     for (int i = 0; i < 128; i++)
     {
-        printf_yellow("    Allocation failed as expected for size %zu in thread %d\n", block_size, data->thread_id);
         blocks[i] = mem_alloc(block_size);
         if (blocks[i] == NULL)
         {
             // if (debug)
-            printf_yellow("    Allocation failed as expected for size %zu in thread %d\n", block_size, data->thread_id);
+            printf_yellow("Allocation failed as expected for size %zu in thread %d\n", block_size, data->thread_id);
             returnval = 1; // Expected failure
             break;
         }
+        printf("%d\n", i);
         // Optional: simulate some usage
         // memset(blocks[i], 0xAA, block_size);
     }
@@ -731,7 +732,7 @@ void *repeated_allocate_in_fragment(void *arg)
 
 void test_memory_fragmentation_multithread(TestParams params)
 {
-    printf_yellow("  Testing \"memory fragmentation handling\" (threads: %d, mem_size: %zu, iterations: %d) ---> ", params.num_threads, params.memory_size, params.iterations);
+    printf_yellow("  Testing \"memory fragmentation handling\" (threads: %d, mem_size: %zu, iterations: %d) ---> \n", params.num_threads, params.memory_size, params.iterations);
     mem_init(params.memory_size); // Initialize with specified memory size to accommodate load
 
     pthread_t threads[params.num_threads];
@@ -743,6 +744,8 @@ void test_memory_fragmentation_multithread(TestParams params)
     size_t base_block_size = params.memory_size / (params.num_threads * 3); // Adjust factor if necessary to prevent over-allocation
 
     // Setup thread parameters
+
+    //printf_yellow("  Testing \"memory fragmentation handling\" (threads: %d, mem_size: %zu, iterations: %d) ---> ", params.num_threads, params.memory_size, params.iterations);
     for (int i = 0; i < params.num_threads; i++)
     {
         params_t[i].thread_id = i;
