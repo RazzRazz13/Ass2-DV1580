@@ -246,9 +246,9 @@ void *thread_alloc_free(void *arg)
     {
         block_size = rand() % data->max_block_size;
         data->block_pointers[i] = mem_alloc(block_size);
+        printf("%d\n", block_size);
         my_assert(data->block_pointers[i] != NULL); // Make sure the allocation was successful
     }
-
     // De-allocation phase
     for (int i = 0; i < data->num_blocks; i++)
     {
@@ -265,6 +265,7 @@ void test_random_blocks_multithread(TestParams params)
 
     int total_blocks = 1000 + rand() % 10000;
     int mem_size = total_blocks * params.block_size;
+    printf("%d\n",mem_size);
 
     mem_init(mem_size);
 
