@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
+#include <pthread.h>
 #include "memory_manager.h"
 
 typedef struct Node {
@@ -10,12 +11,17 @@ typedef struct Node {
   struct Node* next; // A pointer to the next node in the List
 }Node;
 
+static pthread_mutex_t mutex;
+
 void list_init(Node** head, size_t size){
   mem_init(size); //Initializes the memory manager
   *head = NULL; //Sets head to null
+  pthread_mutex_init(&mutex, NULL);
 }
 
 void list_insert(Node** head, uint16_t data){
+
+  pthread_mutex_lock(&mutex);
 
   Node* next_node = (Node*)mem_alloc(sizeof(Node)); //Creating a new node by allocting memory in memory manger
   (*next_node).data = data;
@@ -25,6 +31,7 @@ void list_insert(Node** head, uint16_t data){
 
   if (!current_node){ //Checking if the new node is the first node
     *head = next_node; //Setting the new node to the first node
+    pthread_mutex_unlock(&mutex);
     return;
   }
 
@@ -33,18 +40,25 @@ void list_insert(Node** head, uint16_t data){
   }
 
   (*current_node).next = next_node; //Adding the new node last in the list
+  pthread_mutex_unlock(&mutex);
+  return;
 }
 
 void list_insert_after(Node* prev_node, uint16_t data){
+
+  pthread_mutex_lock(&mutex);
   Node* next_node = (Node*)mem_alloc(sizeof(Node)); //Creating a new node by allocting memory in memory manger
 
   (*next_node).data = data;
   (*next_node).next = (*prev_node).next;
 
   (*prev_node).next = next_node;
+  pthread_mutex_unlock(&mutex);
+  return;
 }
 
 void list_insert_before(Node** head, Node* next_node, uint16_t data){
+  pthread_mutex_lock(&mutex);
   Node* prev_node = (Node*)mem_alloc(sizeof(Node)); //Creating a new node by allocting memory in memory manger
   (*prev_node).data = data;
   (*prev_node).next = next_node;
@@ -53,6 +67,7 @@ void list_insert_before(Node** head, Node* next_node, uint16_t data){
 
   if (current_node == next_node){ //Checking if the first node is the node we are searching for
     *head = prev_node; //Setting the new node to the first node
+    pthread_mutex_unlock(&mutex);
     return;
   }
 
@@ -60,16 +75,19 @@ void list_insert_before(Node** head, Node* next_node, uint16_t data){
     current_node = (*current_node).next;
   }
   (*current_node).next = prev_node; //Setting the node before the searched node next value to the new node
+  pthread_mutex_unlock(&mutex);
   return;
 }
 
 void list_delete(Node** head, uint16_t data){
+  pthread_mutex_lock(&mutex);
   Node* current_node = *head;
   Node* previous_node;
 
   if((*current_node).data == data){ //Checking if first node is the searched node
     *head = (*current_node).next; //Setting second node as first node
     mem_free((char*)current_node); //Freeing the space from the first node
+    pthread_mutex_unlock(&mutex);
     return;
   }
 
@@ -80,6 +98,8 @@ void list_delete(Node** head, uint16_t data){
 
   (*previous_node).next = (*current_node).next; //Removing the node from the list
   mem_free((char*)current_node); //Freeing the memory of the node
+  pthread_mutex_unlock(&mutex);
+  return;
 }
 
 Node* list_search(Node** head, uint16_t data){
@@ -145,6 +165,9 @@ int list_count_nodes(Node** head){
 }
 
 void list_cleanup(Node** head){
+  pthread_mutex_lock(&mutex);
+  mem_deinit();
   *head = NULL; //Setting the head of the list to NULL
-  //mem_deinit();
+  pthread_mutex_unlock(&mutex);
+  pthread_mutex_destroy(&mutex);
 }
