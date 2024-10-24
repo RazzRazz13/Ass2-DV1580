@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <assert.h>
 
 typedef struct Memory_Block {
     int free;  //Stores bool to show if its free
@@ -25,11 +26,9 @@ void mem_init(size_t size){
     (*first_block).data = memorypool;
 }
 
-void* mem_alloc(size_t size) {
-    pthread_mutex_lock(&mutex);
+void* mem_alloc_unlocked(size_t size) {
     if (size == 0) {
-        pthread_mutex_unlock(&mutex);
-        return (*first_block).data;  //If trying to allocate 0 bytes reutn the memorypool
+        return memorypool;  //If trying to allocate 0 bytes reutn the memorypool
     }
     
     Memory_Block* current_block = first_block;
@@ -47,19 +46,16 @@ void* mem_alloc(size_t size) {
             } else {
                 (*current_block).free = 0; //This will be run when current block is equal in size to the allocating
             }
-            pthread_mutex_unlock(&mutex);
             return (*current_block).data; //Returns pointer to the allocated block
         }
         current_block = (*current_block).next;
     }
-    pthread_mutex_unlock(&mutex);
     return NULL;
 }
 
-void mem_free(void* block) {
-    pthread_mutex_lock(&mutex);
+void mem_free_unlocked(void* block) {
+
     if(block == NULL){ //Returns if trying to free NULL
-        pthread_mutex_unlock(&mutex);
         return;
     }
 
@@ -72,6 +68,9 @@ void mem_free(void* block) {
             break;
         }
         current_block = (*current_block).next;
+    }
+    if (freed_block == NULL) {
+        return;
     }
 
     (*freed_block).free = 1; // Mark it as free
@@ -87,14 +86,28 @@ void mem_free(void* block) {
         (*freed_block).size = (*freed_block).size + (*next_block).size; //Sets the middle block to both sizes
         (*freed_block).next = (*next_block).next; //Removes the last block from pool
         free(next_block);
-    
+
     }
+}
+
+void* mem_alloc(size_t size){
+    pthread_mutex_lock(&mutex);
+    void* new_block = mem_alloc_unlocked(size);
+    pthread_mutex_unlock(&mutex);
+    return new_block;
+}
+
+void mem_free(void* block){
+    pthread_mutex_lock(&mutex);
+    mem_free_unlocked(block);
     pthread_mutex_unlock(&mutex);
 }
 
 void* mem_resize(void* block, size_t size){
-    mem_free(block); // Freeing the old block
-    Memory_Block* new_block = mem_alloc(size); //Getting a new block with the intended size
+    pthread_mutex_lock(&mutex);
+    mem_free_unlocked(block); // Freeing the old block
+    Memory_Block* new_block = mem_alloc_unlocked(size); //Getting a new block with the intended size
+    pthread_mutex_unlock(&mutex);
     return new_block;
 }
 
@@ -110,4 +123,5 @@ void mem_deinit(){
         current_block = next_block;
     }
     first_block = NULL;
+
 }
