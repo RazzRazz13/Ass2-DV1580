@@ -434,6 +434,7 @@ void *cumulative_alloc(void *arg)
     intptr_t returnval = 0;
     for (int i = 0; i < 128; i++)
     {
+        printf_yellow("    Allocation failed as expected for size %zu in thread %d\n", block_size, data->thread_id);
         blocks[i] = mem_alloc(block_size);
         if (blocks[i] == NULL)
         {
@@ -477,19 +478,19 @@ void test_exceed_cumulative_allocation_multithread(TestParams params)
             exit(EXIT_FAILURE);
         }
     }
-    printf_yellow("  Testing \"cumulative allocations exceeding pool size\" (threads: %d, mem_size: %zu) ---> \n", params.num_threads, params.memory_size);
     // Join threads and check results
     int pass_count = 0;
     void *status;
     for (int i = 0; i < params.num_threads; i++)
     {
+        printf_yellow("  Testing \"cumulative allocations exceeding pool size\" (threads: %d, mem_size: %zu) ---> \n", params.num_threads, params.memory_size);
         pthread_join(threads[i], &status);
+        printf_yellow("  Testing \"cumulative allocations exceeding pool size\" (threads: %d, mem_size: %zu) ---> \n", params.num_threads, params.memory_size);
         if ((long)status == 1)
         { // Expected failure
             pass_count++;
         }
     }
-    printf_yellow("  Testing \"cumulative allocations exceeding pool size\" (threads: %d, mem_size: %zu) ---> \n", params.num_threads, params.memory_size);
     free(sizes);
     mem_deinit();                 // Clean up the memory manager
     my_barrier_destroy(&barrier); // Destroy the barrier
