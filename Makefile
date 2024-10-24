@@ -43,6 +43,9 @@ run_tests: run_test_mmanager run_test_list
 # run test cases for the memory manager
 run_test_mmanager:
 	LD_LIBRARY_PATH=. ./test_memory_manager 0
+	LD_LIBRARY_PATH=. ./test_memory_manager 1
+	LD_LIBRARY_PATH=. ./test_memory_manager 2
+	LD_LIBRARY_PATH=. ./test_memory_manager 3
 
 # run test cases for the linked list
 run_test_list:

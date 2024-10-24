@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
-#include <assert.h>
 
 typedef struct Memory_Block {
     int free;  //Stores bool to show if its free
@@ -12,30 +11,22 @@ typedef struct Memory_Block {
     void* data;
 } Memory_Block;
 
-static Memory_Block* first_block;
-//static void* memorypool;
-size_t memory_left;
+static Memory_Block *first_block;
 static pthread_mutex_t mutex;
-static pthread_mutex_t mutex2;
+static void* memorypool;
+
 
 void mem_init(size_t size){
-    //memorypool = malloc(size); //Initialize the memeorypool
+    memorypool = malloc(size); //Initialize the memeorypool
     first_block = (Memory_Block*) malloc(sizeof(Memory_Block)); //Create the first empty block
     (*first_block).free = 1;
     (*first_block).size = size;
     (*first_block).next = NULL;
-    (*first_block).data = malloc(size);
-    memory_left = size;
+    (*first_block).data = memorypool;
 }
 
 void* mem_alloc(size_t size) {
-
     pthread_mutex_lock(&mutex);
-
-    if(size > memory_left){
-        return NULL;
-    }
-
     if (size == 0) {
         pthread_mutex_unlock(&mutex);
         return (*first_block).data;  //If trying to allocate 0 bytes reutn the memorypool
@@ -53,7 +44,6 @@ void* mem_alloc(size_t size) {
                 (*current_block).free = 0;
                 (*current_block).size = size;
                 (*current_block).next = next_block; //Setting the found block as allocated han connecting it to the new empty block
-                memory_left -= size;
             } else {
                 (*current_block).free = 0; //This will be run when current block is equal in size to the allocating
             }
@@ -67,17 +57,15 @@ void* mem_alloc(size_t size) {
 }
 
 void mem_free(void* block) {
-
     pthread_mutex_lock(&mutex);
     if(block == NULL){ //Returns if trying to free NULL
         pthread_mutex_unlock(&mutex);
         return;
     }
 
-    Memory_Block *freed_block;
-    Memory_Block* current_block = first_block;
+    Memory_Block *freed_block = NULL;
+    Memory_Block *current_block = first_block;
 
-    int free_after = 0;
     while(current_block){ //Iterates the list until end or if block is found
         if (block == (*current_block).data){
             freed_block = current_block; //Setting current_block as the freed one
@@ -85,9 +73,11 @@ void mem_free(void* block) {
         }
         current_block = (*current_block).next;
     }
-    (*freed_block).free = 1; //Frees the middle block
-    memory_left += (*freed_block).size;
 
+    (*freed_block).free = 1; // Mark it as free
+
+    int free_after = 0;
+    // Merge with the next block if it's free
     Memory_Block* next_block = (*freed_block).next;
     if (next_block != NULL && (*next_block).free == 1){ //Checks if block after is free
         free_after = 1;
@@ -103,32 +93,16 @@ void mem_free(void* block) {
 }
 
 void* mem_resize(void* block, size_t size){
-    pthread_mutex_lock(&mutex2);
-    Memory_Block* current_block = (Memory_Block*)block;
-    if((*current_block).size < size){
-        pthread_mutex_lock(&mutex);
-        Memory_Block* next_block = (Memory_Block*) malloc(sizeof(Memory_Block));//Creating new empty block
-        (*next_block).free = 1;
-        (*next_block).size = (*current_block).size - size;
-        (*next_block).next = (*current_block).next;
-
-        (*current_block).free = 0;
-        (*current_block).size = size;
-        (*current_block).next = next_block; //Splitting one bock into two blocks with one as the intended size
-        pthread_mutex_unlock(&mutex);
-
-    }else if ((*current_block).size > size){
-        mem_free(current_block); // Freeing the old block
-        Memory_Block* new_block = mem_alloc(size); //Getting a new block with the intended size
-        current_block = new_block; //Returning the new block
-    }
-    return current_block;
-    pthread_mutex_unlock(&mutex2);
+    mem_free(block); // Freeing the old block
+    Memory_Block* new_block = mem_alloc(size); //Getting a new block with the intended size
+    return new_block;
 }
 
 void mem_deinit(){
     Memory_Block *current_block = first_block;
     Memory_Block *next_block;
+
+    free(memorypool);
 
     while(current_block){
         next_block = (*current_block).next;
@@ -136,7 +110,4 @@ void mem_deinit(){
         current_block = next_block;
     }
     first_block = NULL;
-    memory_left = 0;
-    pthread_mutex_destroy(&mutex);
-    pthread_mutex_destroy(&mutex2);
 }
