@@ -3,13 +3,12 @@
 #include <string.h>
 #include <stdint.h>
 #include <pthread.h>
-#include <assert.h>
 
 typedef struct Memory_Block {
     int free;  //Stores bool to show if its free
     size_t size; //Stores the size of the memory block
     struct Memory_Block* next; //Stores the next memory block
-    void* data;
+    void* data; //Stores where the Blocks data are
 } Memory_Block;
 
 static Memory_Block *first_block;
@@ -60,6 +59,7 @@ void mem_free_unlocked(void* block) {
     }
 
     Memory_Block *freed_block = NULL;
+    Memory_Block *prev_block = NULL;
     Memory_Block *current_block = first_block;
 
     while(current_block){ //Iterates the list until end or if block is found
@@ -67,47 +67,63 @@ void mem_free_unlocked(void* block) {
             freed_block = current_block; //Setting current_block as the freed one
             break;
         }
+        prev_block = current_block;
         current_block = (*current_block).next;
     }
     if (freed_block == NULL) {
-        return;
+        return; //If freed block isnt found return
     }
 
     (*freed_block).free = 1; // Mark it as free
 
     int free_after = 0;
-    // Merge with the next block if it's free
+    int free_before = 0;
+
     Memory_Block* next_block = (*freed_block).next;
     if (next_block != NULL && (*next_block).free == 1){ //Checks if block after is free
         free_after = 1;
     }
 
-    if (free_after == 1){
+    if (prev_block != NULL && (*prev_block).free == 1){ //Checks if block after is free
+        free_before = 1;
+    }
+
+    // Merge with the next and previous block if it's free
+    if (free_after == 1 && free_before == 1){
+        (*prev_block).size = (*freed_block).size + (*next_block).size + (*prev_block).size; //Sets the middle block to all sizes
+        (*prev_block).next = (*next_block).next; //Removes the last and middle block from pool
+        free(next_block); //Frees the last block
+        free(freed_block); //Frees the middle block
+
+    }else if(free_after == 1){
         (*freed_block).size = (*freed_block).size + (*next_block).size; //Sets the middle block to both sizes
         (*freed_block).next = (*next_block).next; //Removes the last block from pool
-        free(next_block);
-
+        free(next_block); //Frees the last block
+    }else if(free_before == 1){
+        (*prev_block).size = (*freed_block).size + (*prev_block).size; //Sets the first block to both sizes
+        (*prev_block).next = (*freed_block).next; //Removes the middle block from the pool
+        free(freed_block); //Frees the middle block
     }
 }
 
 void* mem_alloc(size_t size){
-    pthread_mutex_lock(&mutex);
-    void* new_block = mem_alloc_unlocked(size);
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex); //Locking the mutex
+    void* new_block = mem_alloc_unlocked(size); //Calling the real mem_alloc
+    pthread_mutex_unlock(&mutex);//Unlocking the mutex
     return new_block;
 }
 
 void mem_free(void* block){
-    pthread_mutex_lock(&mutex);
-    mem_free_unlocked(block);
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex);//Locking the mutex
+    mem_free_unlocked(block); //Calling the real mem_free
+    pthread_mutex_unlock(&mutex);//Unlocking the mutex
 }
 
 void* mem_resize(void* block, size_t size){
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex); //Locking the mutex
     mem_free_unlocked(block); // Freeing the old block
     Memory_Block* new_block = mem_alloc_unlocked(size); //Getting a new block with the intended size
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex);//Unlocking the mutex
     return new_block;
 }
 
@@ -115,13 +131,12 @@ void mem_deinit(){
     Memory_Block *current_block = first_block;
     Memory_Block *next_block;
 
-    free(memorypool);
-
-    while(current_block){
-        next_block = (*current_block).next;
-        free(current_block);
-        current_block = next_block;
-    }
+    free(memorypool); //Frees the memorypool for all the data.
     first_block = NULL;
 
+    while(current_block){ //Iterates the whole list
+        next_block = (*current_block).next;
+        free(current_block); //Frees the block from the memory
+        current_block = next_block;
+    }
 }
